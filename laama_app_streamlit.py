@@ -6,7 +6,7 @@ import re
 # Load data
 df = pd.read_csv("trans_look_like_new_final_file.csv")
 
-# Column descriptions for context
+# Column descriptions
 column_descriptions = {
     "PRODUCT_GROUP_ID": "A unique number that groups similar products together.",
     "TXN_BASKET_KEY": "A code that represents a customer's shopping basket or visit.",
@@ -25,7 +25,9 @@ column_descriptions = {
     "category": "The main category the product belongs to, like Grocery or Beers Wines and Spirits."
 }
 
-# Core Analysis function
+# Instantiate Ollama client (change host if you have remote server)
+client = ollama.Client(host="http://localhost:11434")  # Or your remote host URL
+
 def analyze_data(user_prompt):
     system_message = (
         "You are an expert retail data analyst. "
@@ -44,9 +46,12 @@ def analyze_data(user_prompt):
         {"role": "user", "content": user_message}
     ]
 
-    # Call the Ollama chat API
-    response = ollama.chat(model="llama3.1:8b", messages=messages)
-    content = response['message']['content']
+    try:
+        # Call Ollama chat API using client instance
+        response = client.chat(model="llama3.1:8b", messages=messages)
+        content = response['message']['content']
+    except Exception as e:
+        return "", f"Connection error calling Ollama API: {str(e)}"
 
     # Extract python code block (triple backticks)
     code_match = re.search(r"``````", content)
@@ -57,7 +62,6 @@ def analyze_data(user_prompt):
     else:
         python_code = content.strip()
 
-    # If 'result' not present and code seems to be an expression, wrap it
     if "result" not in python_code:
         python_code = f"result = {python_code}"
 
@@ -69,6 +73,7 @@ def analyze_data(user_prompt):
     except Exception as e:
         output = f"Error executing code: {str(e)}\nGenerated code: {python_code}"
     return python_code, str(output)
+
 
 # Streamlit UI
 st.set_page_config(page_title="Personal AI Data Copilot", layout="wide")
