@@ -48,15 +48,15 @@ def analyze_data(user_prompt):
 
     try:
         # Call Ollama chat API using client instance
-        response = client.chat(model="llama3.1:8b", messages=messages)
+        response = client.chat(model="gpt-oss:20b-cloud", messages=messages)
         content = response['message']['content']
     except Exception as e:
         return "", f"Connection error calling Ollama API: {str(e)}"
 
     # Extract python code block (triple backticks)
-    code_match = re.search(r"``````", content)
+    code_match = re.search(r"```python\s*([\s\S]+?)```", content)
     if not code_match:
-        code_match = re.search(r"``````", content)
+        code_match = re.search(r"```([\s\S]+?)```", content)
     if code_match:
         python_code = code_match.group(1).strip()
     else:
