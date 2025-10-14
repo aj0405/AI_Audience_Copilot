@@ -26,7 +26,7 @@ column_descriptions = {
 }
 
 # Instantiate Ollama client (change host if you have remote server)
-client = ollama.Client(host="http://localhost:11434")  # Or your remote host URL
+client = ollama.Client(host="http://127.0.0.1:11434")  # Or your remote host URL
 
 def analyze_data(user_prompt):
     system_message = (
@@ -92,3 +92,4 @@ if st.button("Analyze"):
     st.code(python_code, language="python")
     st.subheader("AI Analysis Result")
     st.text(ai_output)
+
