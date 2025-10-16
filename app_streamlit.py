@@ -1,12 +1,13 @@
 import streamlit as st
 import pandas as pd
-import ollama
 import re
+from transformers import AutoModelForCausalLM, AutoTokenizer
+import torch
 
-# Load data
+# Load your dataset
 df = pd.read_csv("trans_look_like_new_final_file.csv")
 
-# Column descriptions
+# Column descriptions dictionary
 column_descriptions = {
     "PRODUCT_GROUP_ID": "A unique number that groups similar products together.",
     "TXN_BASKET_KEY": "A code that represents a customer's shopping basket or visit.",
@@ -25,55 +26,67 @@ column_descriptions = {
     "category": "The main category the product belongs to, like Grocery or Beers Wines and Spirits."
 }
 
-# Instantiate Ollama client (change host if you have remote server)
-client = ollama.Client(host="http://127.0.0.1:11434")  # Or your remote host URL
+# Load Hugging Face model and tokenizer
+@st.cache_resource(show_spinner=False)
+def load_model():
+    model_name = "meta-llama/CodeLlama-3b"
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    model = AutoModelForCausalLM.from_pretrained(model_name)
+    return tokenizer, model
+ 
+
+
+tokenizer, model = load_model()
 
 def analyze_data(user_prompt):
+    # Compose the system message to provide context
     system_message = (
         "You are an expert retail data analyst. "
         "Created by AMAN JAIN, a well-known Data Scientist at Dunnhumby. "
-        "Dataset columns (name: meaning, type, and example values):\n"
+        "Dataset columns (name: meaning):\n"
         + "\n".join([f"- {k}: {v}" for k, v in column_descriptions.items()])
         + "\nPlease write python code only to analyze the following question on the loaded dataframe `df`. "
         "Do not include any text explanations or print(). "
         "Always assign your answer to a variable named result, e.g., result = ... . "
         "If you filter rows in pandas, always check if the result is empty—if so, set result = 'No matching row'."
     )
-    user_message = user_prompt
 
-    messages = [
-        {"role": "system", "content": system_message},
-        {"role": "user", "content": user_message}
-    ]
+    prompt = system_message + "\nUser question: " + user_prompt + "\nPython code:"
 
-    try:
-        # Call Ollama chat API using client instance
-        response = client.chat(model="gpt-oss:20b-cloud", messages=messages)
-        content = response['message']['content']
-    except Exception as e:
-        return "", f"Connection error calling Ollama API: {str(e)}"
+    # Tokenize input and generate code
+    inputs = tokenizer.encode(prompt, return_tensors="pt", max_length=1024, truncation=True)
+    outputs = model.generate(
+        inputs,
+        max_new_tokens=256,
+        do_sample=True,
+        temperature=0.7,
+        pad_token_id=tokenizer.eos_token_id,
+        eos_token_id=tokenizer.eos_token_id,
+    )
 
-    # Extract python code block (triple backticks)
-    code_match = re.search(r"```python\s*([\s\S]+?)```", content)
-    if not code_match:
-        code_match = re.search(r"```([\s\S]+?)```", content)
+    # Decode generated text
+    generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
+    
+    # Extract python code block from response
+    code_match = re.search(r"``````", generated_text)
     if code_match:
         python_code = code_match.group(1).strip()
     else:
-        python_code = content.strip()
-
+        # If no code block, treat all generated text as code, after the prompt part
+        python_code = generated_text.split("Python code:")[-1].strip()
+    
+    # Ensure 'result' variable assignment in code for consistency
     if "result" not in python_code:
         python_code = f"result = {python_code}"
 
     local_vars = {"df": df.copy()}
-    output = "Error: No output generated"
     try:
         exec(python_code, {}, local_vars)
-        output = local_vars.get("result", "No result variable found in executed code.")
+        output = local_vars.get("result", "No result found")
     except Exception as e:
-        output = f"Error executing code: {str(e)}\nGenerated code: {python_code}"
-    return python_code, str(output)
+        output = f"Error executing generated code: {str(e)}"
 
+    return python_code, str(output)
 
 # Streamlit UI
 st.set_page_config(page_title="Personal AI Data Copilot", layout="wide")
@@ -92,4 +105,3 @@ if st.button("Analyze"):
     st.code(python_code, language="python")
     st.subheader("AI Analysis Result")
     st.text(ai_output)
-
