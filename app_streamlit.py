@@ -68,4 +68,21 @@ def analyze_data(user_prompt):
 
     return python_code, str(output)
 
-# The remaining Streamlit UI code remains essentially the same.
+# Streamlit UI
+st.set_page_config(page_title="Personal AI Data Copilot", layout="wide")
+st.title("Personal AI Data Copilot")
+st.markdown(
+    "Ask questions about your transactional dataset in natural language. "
+    "The AI generates and runs pandas code on your data to answer your queries, and shows the backend code."
+)
+
+query = st.text_area("Enter your analysis question", height=120)
+
+if st.button("Analyze"):
+    with st.spinner("Analyzing..."):
+        python_code, ai_output = analyze_data(query)
+    st.subheader("Generated Python Code")
+    st.code(python_code, language="python")
+    st.subheader("AI Analysis Result")
+    st.text(ai_output)
+
