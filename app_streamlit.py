@@ -29,13 +29,11 @@ column_descriptions = {
 # Load Hugging Face model and tokenizer
 @st.cache_resource(show_spinner=False)
 def load_model():
-    model_name = "meta-llama/CodeLlama-3b"
+    model_name = "bigcode/starcoder2-3b"
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     model = AutoModelForCausalLM.from_pretrained(model_name)
     return tokenizer, model
  
-
-
 tokenizer, model = load_model()
 
 def analyze_data(user_prompt):
@@ -105,3 +103,4 @@ if st.button("Analyze"):
     st.code(python_code, language="python")
     st.subheader("AI Analysis Result")
     st.text(ai_output)
+
