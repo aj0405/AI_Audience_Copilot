@@ -26,9 +26,6 @@ column_descriptions = {
     "category": "The main category the product belongs to, like Grocery or Beers Wines and Spirits."
 }
 
-# Set your environment variable before running:
-# os.environ['GOOGLE_API_KEY'] = 'your-api-key-here'
-
 # Load the API key from environment variable
 api_key = os.getenv("GOOGLE_API_KEY")
 if not api_key:
@@ -52,13 +49,13 @@ def analyze_data(user_prompt):
     prompt = system_message + "\nUser question: " + user_prompt + "\nPython code:"
 
     response = client.models.generate_content(
-        model="gemini-2.5-flash",  # or your preferred Gemini model
+        model="gemini-2.5-flash",
         contents=prompt
     )
 
     generated_text = response.text
 
-    # Extract Python code from output
+    # Extract Python code block properly
     code_match = re.search(r"``````", generated_text, re.DOTALL)
     if code_match:
         python_code = code_match.group(1).strip()
@@ -67,6 +64,10 @@ def analyze_data(user_prompt):
 
     if "result" not in python_code:
         python_code = f"result = {python_code}"
+
+    # Convert tuples like df.shape to list to avoid exec issues
+    if "df.shape" in python_code:
+        python_code = python_code.replace("df.shape", "list(df.shape)")
 
     local_vars = {"df": df.copy()}
     try:
@@ -77,7 +78,7 @@ def analyze_data(user_prompt):
 
     return python_code, str(output)
 
-# Streamlit interface
+# Streamlit UI
 st.set_page_config(page_title="Personal AI Data Copilot", layout="wide")
 st.title("Personal AI Data Copilot")
 st.markdown(
@@ -94,5 +95,3 @@ if st.button("Analyze"):
     st.code(python_code, language="python")
     st.subheader("Analysis Output")
     st.write(ai_output)
-
-
