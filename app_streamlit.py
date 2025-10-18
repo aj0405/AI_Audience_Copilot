@@ -56,26 +56,24 @@ def analyze_data(user_prompt):
     generated_text = response.text
 
     # Extract Python code block properly
-    code_match = re.search(r"``````", generated_text, re.DOTALL)
+    code_match = re.search(r"```python\s*([\s\S]+?)```", generated_text)
+    if not code_match:
+        code_match = re.search(r"```([\s\S]+?)```", generated_text)
     if code_match:
         python_code = code_match.group(1).strip()
     else:
-        python_code = generated_text.split("Python code:")[-1].strip()
+        python_code = generated_text.strip()
 
     if "result" not in python_code:
         python_code = f"result = {python_code}"
 
-    # Convert tuples like df.shape to list to avoid exec issues
-    if "df.shape" in python_code:
-        python_code = python_code.replace("df.shape", "list(df.shape)")
-
     local_vars = {"df": df.copy()}
+    output = "Error: No output generated"
     try:
         exec(python_code, {}, local_vars)
-        output = local_vars.get("result", "No result found")
+        output = local_vars.get("result", "No result variable found in executed code.")
     except Exception as e:
-        output = f"Error executing generated code: {str(e)}"
-
+        output = f"Error executing code: {str(e)}\nGenerated code: {python_code}"
     return python_code, str(output)
 
 # Streamlit UI
@@ -95,3 +93,4 @@ if st.button("Analyze"):
     st.code(python_code, language="python")
     st.subheader("Analysis Output")
     st.write(ai_output)
+
