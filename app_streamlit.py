@@ -52,9 +52,7 @@ def analyze_data(user_prompt):
 
     response = client.models.generate_content(
         model="gemini-2.5-flash",  # or your preferred Gemini model
-        contents=prompt,
-        temperature=0.7,
-        max_output_tokens=256
+        contents=prompt
     )
 
     generated_text = response.text
@@ -95,3 +93,4 @@ if st.button("Analyze"):
     st.code(python_code, language="python")
     st.subheader("Analysis Output")
     st.write(ai_output)
+
