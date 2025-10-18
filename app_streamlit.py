@@ -1,21 +1,39 @@
+import os
 import streamlit as st
 import pandas as pd
-import re
-import os
 from google import genai
 
 # Load your dataset
 df = pd.read_csv("trans_look_like_new_final_file.csv")
 
-# Column descriptions dictionary (same as before)
+# Column descriptions
 column_descriptions = {
-    # ... (keep your existing descriptions)
+    "PRODUCT_GROUP_ID": "A unique number that groups similar products together.",
+    "TXN_BASKET_KEY": "A code that represents a customer's shopping basket or visit.",
+    "HOUSEHOLD_KEY": "A unique number that identifies each customer household.",
+    "PRODUCT_KEY": "A unique number given to a specific product.",
+    "SALES_CHANNEL_ID": "Shows how the sale was made: 'STO' means in-store, 'ONL' means online.",
+    "STORE_LOCATION_CODE": "Code that tells which store the sale happened at.",
+    "LOYALTY_FLAG": "Shows if a loyalty card was used in the purchase: 'Y' means yes, 'N' means no.",
+    "QUANTITY_PURCHASED": "How many items were bought.",
+    "NET_EXPENDITURE": "The amount spent after discounts or coupons.",
+    "TRANSACTION_DATETIME": "The exact date and time when the purchase was made.",
+    "FINANCIAL_YEAR_KEY": "The year according to the retailer's calendar.",
+    "FINANCIAL_WEEK_KEY": "The week number according to the retailer's calendar.",
+    "product": "Description of the product, usually including name and size.",
+    "BRAND": "Name of the brand of the product.",
+    "category": "The main category the product belongs to, like Grocery or Beers Wines and Spirits."
 }
 
-# Configure Gemini API key
-genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
+# Set your environment variable before running:
+# os.environ['GOOGLE_API_KEY'] = 'your-api-key-here'
 
-# Initialize Gemini client
+# Load the API key from environment variable
+api_key = os.getenv("GOOGLE_API_KEY")
+if not api_key:
+    raise ValueError("Environment variable 'GOOGLE_API_KEY' is not set!")
+
+# Initialize the Gemini client (automatic from environment)
 client = genai.Client()
 
 def analyze_data(user_prompt):
@@ -32,9 +50,8 @@ def analyze_data(user_prompt):
 
     prompt = system_message + "\nUser question: " + user_prompt + "\nPython code:"
 
-    # Use a Gemini model like "gemini-2.5-flash"
     response = client.models.generate_content(
-        model="gemini-2.5-flash",
+        model="gemini-2.5-flash",  # or your preferred Gemini model
         contents=prompt,
         temperature=0.7,
         max_output_tokens=256
@@ -42,7 +59,7 @@ def analyze_data(user_prompt):
 
     generated_text = response.text
 
-    # Extract Python code from model output
+    # Extract Python code from output
     code_match = re.search(r"``````", generated_text, re.DOTALL)
     if code_match:
         python_code = code_match.group(1).strip()
@@ -61,12 +78,12 @@ def analyze_data(user_prompt):
 
     return python_code, str(output)
 
-# Streamlit UI (same as before)
+# Streamlit interface
 st.set_page_config(page_title="Personal AI Data Copilot", layout="wide")
 st.title("Personal AI Data Copilot")
 st.markdown(
     "Ask questions about your transactional dataset in natural language. "
-    "The AI generates and runs pandas code on your data to answer your queries, and shows the backend code."
+    "The AI generates and runs pandas code on your data to answer your queries."
 )
 
 query = st.text_area("Enter your analysis question", height=120)
@@ -76,5 +93,5 @@ if st.button("Analyze"):
         python_code, ai_output = analyze_data(query)
     st.subheader("Generated Python Code")
     st.code(python_code, language="python")
-    st.subheader("AI Analysis Result")
-    st.text(ai_output)
+    st.subheader("Analysis Output")
+    st.write(ai_output)
