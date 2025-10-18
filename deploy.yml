@@ -1,0 +1,9 @@
+env:
+  GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+
+steps:
+  - name: Run Streamlit app or deploy
+    run: |
+      streamlit run app.py
+    env:
+      GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
