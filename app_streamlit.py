@@ -1,36 +1,22 @@
 import streamlit as st
 import pandas as pd
 import re
-from transformers import pipeline
+import os
+from google import genai
 
 # Load your dataset
 df = pd.read_csv("trans_look_like_new_final_file.csv")
 
-# Column descriptions dictionary
+# Column descriptions dictionary (same as before)
 column_descriptions = {
-    "PRODUCT_GROUP_ID": "A unique number that groups similar products together.",
-    "TXN_BASKET_KEY": "A code that represents a customer's shopping basket or visit.",
-    "HOUSEHOLD_KEY": "A unique number that identifies each customer household.",
-    "PRODUCT_KEY": "A unique number given to a specific product.",
-    "SALES_CHANNEL_ID": "Shows how the sale was made: 'STO' means in-store, 'ONL' means online.",
-    "STORE_LOCATION_CODE": "Code that tells which store the sale happened at.",
-    "LOYALTY_FLAG": "Shows if a loyalty card was used in the purchase: 'Y' means yes, 'N' means no.",
-    "QUANTITY_PURCHASED": "How many items were bought.",
-    "NET_EXPENDITURE": "The amount spent after discounts or coupons.",
-    "TRANSACTION_DATETIME": "The exact date and time when the purchase was made.",
-    "FINANCIAL_YEAR_KEY": "The year according to the retailer's calendar.",
-    "FINANCIAL_WEEK_KEY": "The week number according to the retailer's calendar.",
-    "product": "Description of the product, usually including name and size.",
-    "BRAND": "Name of the brand of the product.",
-    "category": "The main category the product belongs to, like Grocery or Beers Wines and Spirits."
+    # ... (keep your existing descriptions)
 }
 
-# Load model via pipeline
-@st.cache_resource(show_spinner=False)
-def load_model_pipeline():
-    return pipeline("text-generation", model="deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B")
+# Configure Gemini API key
+genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
-pipe = load_model_pipeline()
+# Initialize Gemini client
+client = genai.Client()
 
 def analyze_data(user_prompt):
     system_message = (
@@ -46,10 +32,17 @@ def analyze_data(user_prompt):
 
     prompt = system_message + "\nUser question: " + user_prompt + "\nPython code:"
 
-    response = pipe(prompt, max_new_tokens=256, do_sample=True, temperature=0.7, 
-                    pad_token_id=pipe.tokenizer.eos_token_id, eos_token_id=pipe.tokenizer.eos_token_id)
-    generated_text = response[0]['generated_text']
+    # Use a Gemini model like "gemini-2.5-flash"
+    response = client.models.generate_content(
+        model="gemini-2.5-flash",
+        contents=prompt,
+        temperature=0.7,
+        max_output_tokens=256
+    )
 
+    generated_text = response.text
+
+    # Extract Python code from model output
     code_match = re.search(r"``````", generated_text, re.DOTALL)
     if code_match:
         python_code = code_match.group(1).strip()
@@ -68,7 +61,7 @@ def analyze_data(user_prompt):
 
     return python_code, str(output)
 
-# Streamlit UI
+# Streamlit UI (same as before)
 st.set_page_config(page_title="Personal AI Data Copilot", layout="wide")
 st.title("Personal AI Data Copilot")
 st.markdown(
@@ -85,4 +78,3 @@ if st.button("Analyze"):
     st.code(python_code, language="python")
     st.subheader("AI Analysis Result")
     st.text(ai_output)
-
