@@ -34,6 +34,23 @@ if not api_key:
 # Initialize the Gemini client (automatic from environment)
 client = genai.Client()
 
+# Utility: classify general/casual queries vs data analysis queries
+def is_general_query(text):
+    general_keywords = [
+        "hi", "hello", "how are you", "prime minister", "president", "weather", "temperature",
+        "what's up", "who is", "tell me", "chat", "joke", "today", "casual", "news"
+    ]
+    return any(word in text.lower() for word in general_keywords)
+
+# For general/casual chat with Gemini
+def ask_gemini_chat(query, client):
+    response = client.models.generate_content(
+        model="gemini-2.5-flash",
+        contents=query
+    )
+    return response.text
+
+# For dataset analysis
 def analyze_data(user_prompt):
     system_message = (
         "You are an expert retail data analyst. "
@@ -45,28 +62,21 @@ def analyze_data(user_prompt):
         "Always assign your answer to a variable named result, e.g., result = ... . "
         "If you filter rows in pandas, always check if the result is empty—if so, set result = 'No matching row'."
     )
-
     prompt = system_message + "\nUser question: " + user_prompt + "\nPython code:"
-
     response = client.models.generate_content(
         model="gemini-2.5-flash",
         contents=prompt
     )
-
     generated_text = response.text
-
-    # Extract Python code block properly
-    code_match = re.search(r"```python\s*([\s\S]+?)```", generated_text)
+    code_match = re.search(r"``````", generated_text)
     if not code_match:
-        code_match = re.search(r"```([\s\S]+?)```", generated_text)
+        code_match = re.search(r"``````", generated_text)
     if code_match:
         python_code = code_match.group(1).strip()
     else:
         python_code = generated_text.strip()
-
     if "result" not in python_code:
         python_code = f"result = {python_code}"
-
     local_vars = {"df": df.copy()}
     output = "Error: No output generated"
     try:
@@ -74,23 +84,41 @@ def analyze_data(user_prompt):
         output = local_vars.get("result", "No result variable found in executed code.")
     except Exception as e:
         output = f"Error executing code: {str(e)}\nGenerated code: {python_code}"
-    return python_code, str(output)
+    return python_code, output
 
 # Streamlit UI
 st.set_page_config(page_title="Personal AI Data Copilot", layout="wide")
 st.title("Personal AI Data Copilot")
 st.markdown(
     "Ask questions about your transactional dataset in natural language. "
-    "The AI generates and runs pandas code on your data to answer your queries."
+    "The AI generates and runs pandas code on your data to answer your queries. "
+    "You can also ask general questions, like the weather or latest news!"
 )
 
 query = st.text_area("Enter your analysis question", height=120)
 
 if st.button("Analyze"):
     with st.spinner("Analyzing..."):
-        python_code, ai_output = analyze_data(query)
-    st.subheader("Generated Python Code")
-    st.code(python_code, language="python")
-    st.subheader("Analysis Output")
-    st.write(ai_output)
-
+        if is_general_query(query):
+            # General/casual query handled by Gemini chat
+            ai_response = ask_gemini_chat(query, client)
+            st.subheader("AI Response")
+            st.write(ai_response)
+        else:
+            # Data analysis using pandas/Gemini
+            python_code, ai_output = analyze_data(query)
+            st.subheader("Generated Python Code")
+            st.code(python_code, language="python")
+            st.subheader("Analysis Output")
+            # Scrollable pane for large outputs
+            if isinstance(ai_output, pd.DataFrame):
+                st.dataframe(ai_output, use_container_width=True)
+            else:
+                st.markdown(
+                    f"""
+                    <div style="overflow-x:auto; overflow-y:auto; max-height:400px; max-width:100%;">
+                        <pre>{ai_output}</pre>
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
