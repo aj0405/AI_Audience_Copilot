@@ -68,9 +68,9 @@ def analyze_data(user_prompt):
         contents=prompt
     )
     generated_text = response.text
-    code_match = re.search(r"``````", generated_text)
+    code_match = re.search(r"```python\s*([\s\S]+?)```", generated_text)
     if not code_match:
-        code_match = re.search(r"``````", generated_text)
+        code_match = re.search(r"```([\s\S]+?)```", generated_text)
     if code_match:
         python_code = code_match.group(1).strip()
     else:
@@ -84,7 +84,7 @@ def analyze_data(user_prompt):
         output = local_vars.get("result", "No result variable found in executed code.")
     except Exception as e:
         output = f"Error executing code: {str(e)}\nGenerated code: {python_code}"
-    return python_code, output
+    return python_code, str(output)
 
 # Streamlit UI
 st.set_page_config(page_title="Personal AI Data Copilot", layout="wide")
@@ -122,3 +122,4 @@ if st.button("Analyze"):
                     """,
                     unsafe_allow_html=True
                 )
+
